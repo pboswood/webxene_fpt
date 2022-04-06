@@ -1,7 +1,7 @@
 // Singleton class to store instance and configuration details.
 import 'dart:convert';
-
 import 'package:http/http.dart' as http;
+import 'motes/schema.dart';
 
 class InstanceManager {
 	static InstanceManager? _instance;
@@ -9,7 +9,9 @@ class InstanceManager {
 	InstanceManager._singleton();       // Empty singleton constructor
 
 	String _instanceHost = "";          // Hostname of our API server.
-	Map<String, dynamic> _instanceConfig = {};
+	final Map<String, dynamic> _instanceConfig = {};
+	final Map<int, Schema> _schemasById = {};
+	final Map<String, Schema> _schemasByType = {};
 
 	// Setup instance manager with configuration details. Called after instance
 	// data is retrieved by login/username exchange or keypair checks.
@@ -19,10 +21,16 @@ class InstanceManager {
 		}
 		if (instanceConfig != null) {
 			instanceConfig.forEach((key, value) {
-				_instanceConfig[key] = value;
+				if (key == 'schemas') {
+					hydrateSchemas(value);
+					print("Loaded ${_schemasById.length} schemas from instance config.");
+				} else if (key == 'actions') {
+					// TODO: Implement actions hydration
+				} else {
+					_instanceConfig[key] = value;
+				}
 			});
 		}
-		// TODO: Deal with decoding of schemas+actions here?
 	}
 
 	// Get API path as URI for a client connection, for example:
@@ -83,6 +91,17 @@ class InstanceManager {
 	// Fetch common environmental variables used in instance configuration.
 	String get defaultSecurecode => _instanceConfig['defaultSecurecode'] ?? '';
 
+	// Get a schema type by ID or type string, after instance initialization.
+	schemaById(int id) => _schemasById.containsKey(id) ? _schemasById[id] : throw Exception("Failed to load schema #$id");
+	schemaByType(String type) => _schemasByType.containsKey(type) ? _schemasByType[type] : throw Exception("Failed to load schema '$type'");
+
+	// Create our schema objects from a JSON list and assign them to our lookup maps.
+	hydrateSchemas(List<dynamic> schemas) {
+		for (var schema in schemas.map((s) => Schema.fromJson(s))) {
+			_schemasById[schema.id] = schema;
+			_schemasByType[schema.type] = schema;
+		}
+	}
 }
 
 enum APIResponseJSON {

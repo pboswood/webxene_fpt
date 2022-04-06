@@ -32,7 +32,7 @@ class Group {
 		if (json['menu'] != null && json['menu'] is List) {
 			final jsonMenu = json['menu'] as List;
 			for (var menuItem in jsonMenu) {
-				orderedMenu.add(Page.fromJson(menuItem));
+				orderedMenu.add(Page.fromJson(menuItem, partialData: true));
 			}
 			orderedMenu.sort((a, b) => a.menuOrder - b.menuOrder);
 		}

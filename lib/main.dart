@@ -61,9 +61,13 @@ class HomeWidget extends StatelessWidget {
 		final sampleGroup = await GroupManager().fetchGroup(6);
 		print("Loaded sample group: ${sampleGroup.id} / ${sampleGroup.name}");
 		final samplePage = sampleGroup.orderedMenu.firstWhere((page) => page.name == "Invoices");
-		print("Loaded sample page: ${samplePage.id} / ${samplePage.name} (menu position ${samplePage.menuOrder})");
+		print("Loaded sample menu-page: ${samplePage.id} / ${samplePage.name} (menu position ${samplePage.menuOrder})");
 
-		// (Normally you would know which motes ID numbers to fetch from the page, but we need a CardDeck column implementation first!)
+		final fullSamplePage = await GroupManager().fetchPageAndMotes(samplePage.id, forceRefresh: true);
+		print("Loaded sample full-page: ${fullSamplePage.id} / ${fullSamplePage.name}");
+		print("Found ${fullSamplePage.cachedMotes.length} motes in sample full-page.");
+
+
 
 		List<int> benchmarkIds = [];
 		for (int i = 4508; i <= 4600; i++) {

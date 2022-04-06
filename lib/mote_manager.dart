@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'auth_manager.dart';
 import 'instance_manager.dart';
 import "motes/mote.dart";
 
@@ -25,9 +26,12 @@ class MoteManager {
 
 	// Fetch a single mote as given by the mote ID and a group ID. Usually used only for looking up relations,
 	// as we normally fetch a sequence given by a page or something else.
-	//Future<Mote> fetchMote(int id, int gid) async {
-		// return fetchMotes(List<int>.filled(1, id), gid);
-	//}
+	Future<Mote> fetchMote(int id, int gid) async {
+		final moteList = await fetchMotes(List<int>.filled(1, id), gid);
+		final moteObj = moteList.firstWhere((mote) => mote.id == id,
+			orElse: () => throw NotFoundException());
+		return moteObj;
+	}
 	Future<List<Mote>> fetchMotes(List<int> ids, int gid) async {
 		final List<Mote> returnMotes = [];
 
@@ -78,4 +82,28 @@ class MoteManager {
 		}
 	}
 
+	// Automatically load and cache motes from a page request, usually called by GroupManager.
+	// This is the normal route of loading motes - from a page request. Returns a list of
+	// the loaded motes, which may be empty.
+	Future<List<Mote>> autoloadFromPageRequest(APIResponse apiPage) async {
+		if (apiPage.result is! Map) {
+			return [];
+		}
+		final List<dynamic> jsonMotes = (apiPage.result as Map<String, dynamic>)['motes'] ?? [];
+		final List<Mote> returnMotes = [];
+		// TODO: Multithread this?
+		for (var jsonMote in jsonMotes) {
+			try {
+				Mote initializedMote = Mote.fromEncryptedJson(jsonMote);
+				await initializedMote.decryptMote();
+				returnMotes.add(initializedMote);
+				_moteCache[initializedMote.id] = initializedMote;
+			} catch (ex) {
+				// On failure of initializing a mote (JSON decode / encryption), warn but continue.
+				print(ex);
+			}
+		}
+
+		return returnMotes;
+	}
 }

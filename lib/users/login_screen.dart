@@ -46,6 +46,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 	@override void initState() {
 		super.initState();
 
+		// TODO: Initialize with testing server HTTP only for now!
 		InstanceManager().setupInstance("netxene.cirii.org", { 'DEBUG_HTTP': true });
 
 		controller.mirrorState(AuthManager().state);

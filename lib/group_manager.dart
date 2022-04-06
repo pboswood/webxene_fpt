@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'groups/group.dart';
 import 'groups/page.dart';
 import 'instance_manager.dart';
+import 'mote_manager.dart';
+import 'motes/mote.dart';
+import 'user_manager.dart';
 
 // Manager for handling all group and page fetches and caching.
 class GroupManager {
@@ -59,5 +62,27 @@ class GroupManager {
 			}
 		}
 		return groupObj;
+	}
+
+	// Fetch complete details on a single page, which also automatically gives us a preliminary mote list.
+	Future<Page> fetchPageAndMotes(int pageId, { bool forceRefresh = false }) async {
+		// Use page cache if we have a non-partial result.
+		if (!forceRefresh && _pageCache.containsKey(pageId) && !_pageCache[pageId]!.isPartialData) {
+			return _pageCache[pageId]!;
+		}
+
+		final apiPage = await InstanceManager().apiRequest('pages/' + pageId.toString());
+		if (!apiPage.success(APIResponseJSON.map)) {
+			throw Exception("Failed to fetch page (error " + apiPage.response.statusCode.toString() + ")");
+		}
+		final pageObj = Page.fromJson(apiPage.result);
+		_pageCache[pageId] = pageObj;
+
+		// Deal with optional attribution section which details usernames.
+		UserManager().autoloadAttribution(apiPage);
+		// Deal with optional motes section which lists all motes used in page.
+		pageObj.cachedMotes  = await MoteManager().autoloadFromPageRequest(apiPage);
+
+		return pageObj;
 	}
 }

@@ -1,9 +1,7 @@
 // Singleton class to store authentication details for current user.
 import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:tuple/tuple.dart';
-import 'package:webxene_fpt/users/login_screen.dart';
 import 'users/user.dart';
 import "instance_manager.dart";
 import 'users/user_recognition.dart';
@@ -87,7 +85,7 @@ class AuthManager {
 			final keypairRemoteFetch = await getLoggedInKeypair(getInstanceInitializer: true);
 			final keypairRemote = keypairRemoteFetch.item1;
 			final instanceConfig = keypairRemoteFetch.item2;
-			InstanceManager().setupInstance(null, instanceConfig?['instance']);
+			InstanceManager().setupInstance(null, instanceConfig);
 			print("Remote keypair identified: id ${keypairRemote.id} is valid.");
 			final keypairRecovered = await attemptKeyRecovery(keypairRemote);
 
@@ -108,8 +106,8 @@ class AuthManager {
 		final apiResolveUser = await InstanceManager().apiRequest('users', { 'lookup': username });
 		if (!apiResolveUser.success(APIResponseJSON.map)) {
 			throw apiResolveUser.response.statusCode == 404 ?
-					NotFoundException() :
-					Exception("${apiResolveUser.response.statusCode}: ${apiResolveUser.response.reasonPhrase ?? 'Unknown error'}");
+				NotFoundException() :
+				Exception("${apiResolveUser.response.statusCode}: ${apiResolveUser.response.reasonPhrase ?? 'Unknown error'}");
 		}
 		_recognition = UserRecognition.fromJson(apiResolveUser.result);
 	}
