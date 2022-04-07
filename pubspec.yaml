@@ -37,6 +37,8 @@ dependencies:
   webcrypto: ^0.5.2
   tuple: ^2.0.0
   get: ^4.6.1
+  webxene_core:
+    path: ../webxene_core
 
 dev_dependencies:
   flutter_test:

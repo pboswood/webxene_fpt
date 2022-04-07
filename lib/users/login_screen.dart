@@ -1,12 +1,8 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import "../auth_manager.dart";
-import '../motes/mote.dart';
-import "../widgets/spinning_icon.dart";
 import 'package:get/get.dart';
-import "../mote_manager.dart";
-import "../instance_manager.dart";
+import 'package:webxene_core/auth_manager.dart';
+import 'package:webxene_core/instance_manager.dart';
+import 'package:webxene_core/widgets/spinning_icon.dart';
 
 class LoginScreenController extends GetxController {
 	final pending = false.obs;
@@ -156,6 +152,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 				if (controller.pending.value) {
 					return;
 				}
+				InstanceManager().setupInstance("netxene.cirii.org", { 'instance': {'DEBUG_HTTP': true }});
+
 				AuthManager().runSingleStageLogin(loginName.text, loginPassword.text).then((_) {
 					if (AuthManager().state == AuthState.complete) {
 						Navigator.pushNamed(context, '/home');
