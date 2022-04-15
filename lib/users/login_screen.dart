@@ -179,7 +179,30 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 			),
 		);
 
-		return [ topWarning, txtLoginName, txtLoginPassword, const Padding(padding: EdgeInsets.all(10)), btnRunLogin ];
+		final topDebugFill = Container(
+			decoration: const BoxDecoration(
+				color: Colors.black45,
+				backgroundBlendMode: BlendMode.darken,
+				borderRadius: BorderRadius.all(Radius.circular(7))
+			),
+			height: 40,
+			child: TextButton.icon(
+				icon: const Icon(Icons.badge_sharp),
+				label: Container(
+					child: const Text("Fill Test Login"),
+				),
+				onPressed: () {
+					loginName.text = "alice@example.com";
+					loginPassword.text = "alice";
+				},
+			),
+		);
+
+		return [
+			topWarning, topDebugFill, const Padding(padding: EdgeInsets.all(10)),
+			txtLoginName, txtLoginPassword, const Padding(padding: EdgeInsets.all(10)),
+			btnRunLogin
+		];
 	}
 
 	List<Widget> _buildKeyPrompt(BuildContext context) {

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:webxene_core/auth_manager.dart';
+import 'package:webxene_core/motes/filter.dart';
+import 'package:webxene_core/motes/mote_column.dart';
 import "users/login_screen.dart";
 import 'package:webxene_core/group_manager.dart';
 import "package:webxene_core/mote_manager.dart";
@@ -58,41 +61,62 @@ class HomeWidget extends StatelessWidget {
 
 	// Sample fetch for motes of data.
 	Future<String> sampleMoteFetch() async {
-		final sampleGroup = await GroupManager().fetchGroup(6);
-		print("Loaded sample group: ${sampleGroup.id} / ${sampleGroup.name}");
+		String ret = "";
+
+		// Fetch all groups the logged in user has access to.
+		final myGroups = await AuthManager().loggedInUser.getSelfGroupsList();
+		ret = "Found ${myGroups.length} groups user is part of.\n";
+		// Get the specific group we are testing. Normally bound to some kind of selector, etc.
+		final groupClicked = myGroups.firstWhere((group) => group.name == "Invoice Group");
+
+		// Fetch a single group + the menu of pages inside it.
+		final sampleGroup = await GroupManager().fetchGroup(groupClicked.id);
+		ret += "Loaded sample group: ${sampleGroup.id} / ${sampleGroup.name}\n";
 		final samplePage = sampleGroup.orderedMenu.firstWhere((page) => page.name == "Invoices");
-		print("Loaded sample menu-page: ${samplePage.id} / ${samplePage.name} (menu position ${samplePage.menuOrder})");
+		ret += "Loaded sample menu-page: ${samplePage.id} / ${samplePage.name} (menu position ${samplePage.menuOrder})\n";
 
+		// Fetch a single page + all data motes inside it.
 		final fullSamplePage = await GroupManager().fetchPageAndMotes(samplePage.id, forceRefresh: true);
-		print("Loaded sample full-page: ${fullSamplePage.id} / ${fullSamplePage.name}");
-		print("Found ${fullSamplePage.cachedMotes.length} motes in sample full-page.");
+		ret += "Loaded sample full-page: ${fullSamplePage.id} / ${fullSamplePage.name}\n";
+		ret += "Found ${fullSamplePage.cachedMotes.length} motes in sample full-page.\n";
 
-		List<int> benchmarkIds = [];
-		for (int i = 4508; i <= 4600; i++) {
-			benchmarkIds.add(i);
+		// Get carddeck columns from this page for rendering.
+		ret += "Found ${fullSamplePage.columns.length} columns in sample page:\n";
+		ret += fullSamplePage.columns.values.map((c) => c.title).join(", ") + "\n";
+
+		// Fetch all filters possible for a single column.
+		MoteColumn sampleColumn = fullSamplePage.columns.values.firstWhere((c) => c.title == "Customers");
+		ret += "Selected column: #${sampleColumn.id} ${sampleColumn.title}\n";
+		final filterList  = sampleColumn.allPossibleFilters();
+		ret += "Possible filters: " + filterList.join(',') + "\n";
+
+		// Add a filter and display matching motes.
+		sampleColumn.filters.add(Filter.andFilter("cf_customer_code", 123));
+		ret += "Added filter for cf_customer_code = 123\n";
+		var moteView = sampleColumn.getMoteView();
+		ret += "Got mote view of ${moteView.length} motes from column:\n";
+		var interpretation = Mote.interpretMotesCSV(moteView);
+		var header = interpretation.item1, data = interpretation.item2;
+		ret += header + "\n";
+		for (var datum in data) {
+			ret += datum + "\n";
 		}
-		// final sampleMotes = await MoteManager().fetchMotes([773, 774, 775], 6);
+
+		// Remove filter and display all motes.
+		sampleColumn.filters.clear();
+		moteView = sampleColumn.getMoteView();
+		interpretation = Mote.interpretMotesCSV(moteView);
+		data = interpretation.item2;
+		ret += "Unfiltered data: found ${data.length} motes.\n";
+
+		// Run a benchmark for loading ~100 motes. These are motes with ID from 4508-4600 in group 7.
+		final timerLoad = Stopwatch()..start();
+		List<int> benchmarkIds = [for (var i = 4508; i <= 4600; i++) i ];
 		final sampleMotes = await MoteManager().fetchMotes(benchmarkIds, 7);
+		final sampleMotesCSV = Mote.interpretMotesCSV(sampleMotes);
+		timerLoad.stop();
+		ret += "\n\nBenchmark: Fetched+interpreted ${sampleMotesCSV.item2.length} motes in ${timerLoad.elapsedMilliseconds}ms.";
 
-		List<dynamic> sampleMotesCSV = [];
-		for (Mote m in sampleMotes) {
-			sampleMotesCSV.add(m.motePayloadCSV());
-		}
-
-		//
-
-		// TODO: Middleware to consolidate + normalize headers for CSV output and return only CSV strings.
-		String ret = "Fetched ${sampleMotes.length} data motes:\n\n";
-		for (var mote in sampleMotes) {
-			var moteTitle = mote.payload['title'] ?? "(Unnamed)";
-			ret += "----- #${mote.id}: $moteTitle -----\n\n";
-			var payloadJSON = mote.payload.toString();
-			var payloadCSV = mote.motePayloadCSV();
-			var payloadHeadersCSV = mote.motePayloadHeadersCSV();
-			ret += payloadJSON + "\n\n";
-			ret += payloadCSV + "\n\n";
-			ret += payloadHeadersCSV + "\n\n";
-		}
 		return ret;
 
 	}
