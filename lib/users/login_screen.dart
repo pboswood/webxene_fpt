@@ -29,6 +29,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
 	TextEditingController loginName = TextEditingController();
 	TextEditingController loginPassword = TextEditingController();
+	bool useProductionServer = false;
 
 	late AnimationController _animationController;      // Animations for hero icon
 	final LoginScreenController controller = LoginScreenController();
@@ -43,7 +44,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 		super.initState();
 
 		// TODO: Initialize with testing server HTTP only for now!
-		InstanceManager().setupInstance("netxene.cirii.org", { 'instance': {'DEBUG_HTTP': true }});
+		// InstanceManager().setupInstance("netxene.cirii.org", { 'instance': {'DEBUG_HTTP': true }});
+		useProductionServer = false;
 
 		controller.mirrorState(AuthManager().state);
 		_animationController = AnimationController(
@@ -100,10 +102,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 		final txtLoginName = TextFormField(
 			controller: loginName,
 			decoration: const InputDecoration(
-				icon: Icon(Icons.contact_mail),
+				icon: Icon(Icons.contact_mail, color: Colors.black87),
 				hintText: "Enter your email address",
 				labelText: "Login email",
+				labelStyle: TextStyle(
+					color: Colors.black87
+				),
 			),
+			style: TextStyle(
+			),
+
 			autovalidateMode: AutovalidateMode.onUserInteraction,
 			validator: (String? value) {
 				return (value != null && value.contains('@')) ? null : "Please enter an email address.";
@@ -117,9 +125,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 			controller: loginPassword,
 			obscureText: true,
 			decoration: const InputDecoration(
-				icon: Icon(Icons.password),
+				icon: Icon(Icons.password, color: Colors.black87),
 				hintText: "Enter your password",
 				labelText: 'Password',
+				labelStyle: TextStyle(
+					color: Colors.black87,
+				),
 			),
 			autovalidateMode: AutovalidateMode.onUserInteraction,
 			validator: (String? value) {
@@ -135,7 +146,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 			label: Container(
 				child: Text(
 					controller.pending.value ? "Loading..." : "Sign in",
-					style: TextStyle(fontSize: 16),
+					style: const TextStyle(fontSize: 16),
 				),
 				width: 100,
 				height: 30,
@@ -152,11 +163,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 				if (controller.pending.value) {
 					return;
 				}
-				InstanceManager().setupInstance("netxene.cirii.org", { 'instance': {'DEBUG_HTTP': true }});
+
+				if (useProductionServer) {
+					InstanceManager().setupInstance("crm.sevconcept.ch", {'instance': {'DEBUG_HTTP': false}});
+				} else {
+					InstanceManager().setupInstance("netxene.cirii.org", {'instance': {'DEBUG_HTTP': true}});
+				}
 
 				AuthManager().runSingleStageLogin(loginName.text, loginPassword.text).then((_) {
 					if (AuthManager().state == AuthState.complete) {
-						Navigator.pushNamed(context, '/home');
+						Navigator.pushNamed(context, useProductionServer ? '/sample' : '/home');
 					}
 				});
 			},
@@ -192,14 +208,40 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 					child: const Text("Fill Test Login"),
 				),
 				onPressed: () {
+					useProductionServer = false;
 					loginName.text = "alice@example.com";
 					loginPassword.text = "alice";
 				},
 			),
 		);
 
+		final topProdFill = Container(
+			decoration: const BoxDecoration(
+				color: Colors.black45,
+				backgroundBlendMode: BlendMode.darken,
+				borderRadius: BorderRadius.all(Radius.circular(7))
+			),
+			height: 40,
+			child: TextButton.icon(
+				icon: const Icon(Icons.verified_sharp),
+				label: Container(
+					child: const Text("Fill Prod. Login"),
+				),
+				onPressed: () {
+					useProductionServer = true;
+					loginName.text = "demo-user@sevconcept.ch";
+					loginPassword.text = "demouser123";
+				},
+			),
+		);
+
+		final topAllFill = Row(
+			children: [topDebugFill, topProdFill],
+			mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+		);
+
 		return [
-			topWarning, topDebugFill, const Padding(padding: EdgeInsets.all(10)),
+			topWarning, topAllFill, const Padding(padding: EdgeInsets.all(10)),
 			txtLoginName, txtLoginPassword, const Padding(padding: EdgeInsets.all(10)),
 			btnRunLogin
 		];
