@@ -13,7 +13,7 @@ class SampleGroup extends StatelessWidget {
 		return FutureBuilder(
 			future: _getSampleGroup(),
 			builder: (BuildContext context, AsyncSnapshot<List<Mote>> snapshot) {
-				if (snapshot.connectionState == ConnectionState.waiting) {
+				if (snapshot.connectionState == ConnectionState.waiting || snapshot.connectionState == ConnectionState.none) {
 					return Scaffold(
 						appBar: AppBar(title: const Text("Loading...")),
 						body: const Center(
@@ -32,13 +32,22 @@ class SampleGroup extends StatelessWidget {
 							return Card(
 								margin: const EdgeInsets.only(bottom: 10),
 								child: ListTile(
-									leading: const Icon(Icons.perm_contact_calendar),
+									leading: const Icon(Icons.contact_phone, size: 36),
 									title: Text(snapshot.data?[index].payload['title'] ?? ""),
 									subtitle: Text(subtitle),
 								),
 							);
 						}
 					),
+					/*
+					floatingActionButton: FloatingActionButton(
+						backgroundColor: Colors.blueGrey,
+						child: const Icon(Icons.saved_search),
+						onPressed: () {
+
+						},
+					),
+					*/
 				);
 			},
 		);
@@ -59,6 +68,17 @@ Future<List<Mote>> _getSampleGroup() async {
 		final targetColumn = fullPage.columns[targetColumnId]!;
 		targetColumn.filters.clear();
 		final motes = targetColumn.getMoteView();
+		final motesCSV = Mote.interpretMotesCSV(motes);
+		final motesHeader = motesCSV.item1;
+		print(motesHeader);
+		final motesData = motesCSV.item2;
+		print(motesData);
+
+		targetColumn.filters.add(Filter.andFilter("title", "Kaufmann"));
+		final filteredMotes = Mote.interpretMotesCSV(targetColumn.getMoteView());
+		print(filteredMotes.item1);     // Header
+		print(filteredMotes.item2);     // Data
+
 		return motes;
 	} catch (ex) {
 		return [];
