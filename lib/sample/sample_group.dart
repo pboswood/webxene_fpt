@@ -5,6 +5,7 @@ import 'package:webxene_core/groups/group.dart';
 import 'package:webxene_core/motes/filter.dart';
 import 'package:webxene_core/motes/mote.dart';
 import 'package:webxene_core/motes/mote_column.dart';
+import 'package:webxene_core/motes/sort_method.dart';
 
 class SampleGroup extends StatelessWidget {
 	const SampleGroup({Key? key}) : super(key: key);
@@ -55,11 +56,17 @@ class SampleGroup extends StatelessWidget {
 }
 
 Future<List<Mote>> _getSampleGroup() async {
+
 	int targetGroupId = 1;
 	int targetPageId = 6;
 	int targetColumnId = 1;
 
+	// This is equivalent to: https://crm.sevconcept.ch/#!/group/1/page/7/view/129
+	int specialPageId = 7;
+	int specialPageSubmote = 129;
+
 	try {
+		// Normal example
 		final myGroups = await AuthManager().loggedInUser.getSelfGroupsList();
 		final myGroupsSelection = myGroups.firstWhere((g) => g.id == targetGroupId);
 		final targetGroup = await GroupManager().fetchGroup(myGroupsSelection.id);
@@ -73,11 +80,25 @@ Future<List<Mote>> _getSampleGroup() async {
 		print(motesHeader);
 		final motesData = motesCSV.item2;
 		print(motesData);
+		
+		// Sorting example
+		targetColumn.sortMethods.add(SortMethod.normalSort("title", true));
+		final sortedMotes = targetColumn.getMoteView();
+		print(sortedMotes.map((m) => m.payload['title']).toList());
+		targetColumn.sortMethods.clear();
 
+		// Filtering example
 		targetColumn.filters.add(Filter.andFilter("title", "Kaufmann"));
 		final filteredMotes = Mote.interpretMotesCSV(targetColumn.getMoteView());
 		print(filteredMotes.item1);     // Header
 		print(filteredMotes.item2);     // Data
+
+		// Special page example (e.g. fetching all contacts inside company mote #129)
+		// This is equivalent to: https://crm.sevconcept.ch/#!/group/1/page/7/view/129
+		final specialPage = await GroupManager().fetchPageAndMotes(specialPageId, forceRefresh: true, subviewMote: specialPageSubmote);
+		final specialColumnContacts = specialPage.columns[1];       // 'Kontakte' column
+		final specialColumnNotes = specialPage.columns[2];          // 'Notizen' column
+		print("Found ${specialColumnContacts?.getMoteView().length ?? 0} contacts and ${specialColumnNotes?.getMoteView().length ?? 0} notes!");
 
 		return motes;
 	} catch (ex) {
