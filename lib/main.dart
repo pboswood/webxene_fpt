@@ -96,8 +96,10 @@ class HomeWidget extends StatelessWidget {
 			// Add a filter and display matching motes.
 			sampleColumn.filters.add(Filter.andFilter("cf_customer_code", 123));
 			ret += "Added filter for cf_customer_code = 123\n";
-			var moteView = sampleColumn.getMoteView();
+			sampleColumn.calculateMoteView();
+			var moteView = sampleColumn.getMoteViewPage(pageNum: 0);
 			ret += "Got mote view of ${moteView.length} motes from column:\n";
+			await Mote.retrieveReferences(moteView, sampleGroup.id);
 			var interpretation = Mote.interpretMotesCSV(moteView);
 			var header = interpretation.item1, data = interpretation.item2;
 			ret += header + "\n";
@@ -107,7 +109,9 @@ class HomeWidget extends StatelessWidget {
 
 			// Remove filter and display all motes.
 			sampleColumn.filters.clear();
-			moteView = sampleColumn.getMoteView();
+			sampleColumn.calculateMoteView();
+			moteView = sampleColumn.getMoteViewPage(pageNum: 0);
+			await Mote.retrieveReferences(moteView, sampleGroup.id);
 			interpretation = Mote.interpretMotesCSV(moteView);
 			data = interpretation.item2;
 			ret += "Unfiltered data: found ${data.length} motes.\n";

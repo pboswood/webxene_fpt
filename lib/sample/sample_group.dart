@@ -5,6 +5,7 @@ import 'package:webxene_core/groups/group.dart';
 import 'package:webxene_core/motes/filter.dart';
 import 'package:webxene_core/motes/mote.dart';
 import 'package:webxene_core/motes/mote_column.dart';
+import 'package:webxene_core/motes/mote_relation.dart';
 import 'package:webxene_core/motes/sort_method.dart';
 
 class SampleGroup extends StatelessWidget {
@@ -28,8 +29,16 @@ class SampleGroup extends StatelessWidget {
 					body: ListView.builder(
 						itemCount: snapshot.data?.length ?? 0,
 						itemBuilder: (context, index) {
+							// The subtitle for each item in our list should contain address, telefone, and categories.
 							String subtitle = snapshot.data?[index].payload['cf_adresse'] ?? "";
 							subtitle += "\n" + (snapshot.data?[index].payload['cf_telefon'] ?? "");
+							// Get all relations as motes, then convert them into string separated by commas.
+							var categoryRelations = snapshot.data?[index].payload['cf_kategorie'] as List;
+							var categoryNames = MoteRelation
+								.asMoteList(categoryRelations, snapshot.data?[index].id ?? 0)
+								.map((m) => m.payload['title'] ?? '(Unknown)');
+							subtitle += "\n" + categoryNames.join(', ');
+
 							return Card(
 								margin: const EdgeInsets.only(bottom: 10),
 								child: ListTile(
@@ -74,7 +83,10 @@ Future<List<Mote>> _getSampleGroup() async {
 		final fullPage = await GroupManager().fetchPageAndMotes(targetPage.id, forceRefresh: true);
 		final targetColumn = fullPage.columns[targetColumnId]!;
 		targetColumn.filters.clear();
-		final motes = targetColumn.getMoteView();
+		targetColumn.calculateMoteView();                               // Call once every time filters/sort changes or when initializing column.
+		final motes = targetColumn.getMoteViewPage(pageNum: 0);         // Gets 20 motes from page 0.
+		await Mote.retrieveReferences(motes, targetGroupId);            // Get all references from those 20 motes.
+
 		final motesCSV = Mote.interpretMotesCSV(motes);
 		final motesHeader = motesCSV.item1;
 		print(motesHeader);
@@ -83,13 +95,15 @@ Future<List<Mote>> _getSampleGroup() async {
 		
 		// Sorting example
 		targetColumn.sortMethods.add(SortMethod.normalSort("title", true));
-		final sortedMotes = targetColumn.getMoteView();
+		targetColumn.calculateMoteView();
+		final sortedMotes = targetColumn.getMoteViewPage(pageNum: 0);
 		print(sortedMotes.map((m) => m.payload['title']).toList());
 		targetColumn.sortMethods.clear();
 
 		// Filtering example
 		targetColumn.filters.add(Filter.andFilter("title", "Kaufmann"));
-		final filteredMotes = Mote.interpretMotesCSV(targetColumn.getMoteView());
+		targetColumn.calculateMoteView();
+		final filteredMotes = Mote.interpretMotesCSV(targetColumn.getMoteViewPage(pageNum: 0));
 		print(filteredMotes.item1);     // Header
 		print(filteredMotes.item2);     // Data
 
@@ -98,10 +112,24 @@ Future<List<Mote>> _getSampleGroup() async {
 		final specialPage = await GroupManager().fetchPageAndMotes(specialPageId, forceRefresh: true, subviewMote: specialPageSubmote);
 		final specialColumnContacts = specialPage.columns[1];       // 'Kontakte' column
 		final specialColumnNotes = specialPage.columns[2];          // 'Notizen' column
-		print("Found ${specialColumnContacts?.getMoteView().length ?? 0} contacts and ${specialColumnNotes?.getMoteView().length ?? 0} notes!");
+		specialColumnContacts?.calculateMoteView();
+		specialColumnNotes?.calculateMoteView();
+		final List<Mote> contactsView = specialColumnContacts?.getMoteViewPage(unpaginated: true) ?? [];
+		final List<Mote> notesView = specialColumnNotes?.getMoteViewPage(unpaginated: true) ?? [];
+		// Fetch all references from both at once - or we wait a lot longer for 2 HTTP round trips!
+		await Mote.retrieveReferences(contactsView + notesView, targetGroupId);
+
+		print("Found ${contactsView.length} contacts and ${notesView.length} notes!");
+		// Print each note title followed by company it is from (called ref2 internally)
+		for (var note in notesView) {
+			var companyRefs = MoteRelation.asMoteList(note.payload['cf_*ref2'], note.id);
+			print(note.payload['title'] + ": " + companyRefs.map((c) => c.payload['title']).toList().join(", "));
+		}
 
 		return motes;
 	} catch (ex) {
+		print("EXCEPTION:");
+		print(ex);
 		return [];
 	}
 /*
