@@ -94,6 +94,7 @@ Future<List<Mote>> _getSampleGroup() async {
 		print(motesData);
 		
 		// Sorting example
+		print("Sorting:");
 		targetColumn.sortMethods.add(SortMethod.normalSort("title", true));
 		targetColumn.calculateMoteView();
 		final sortedMotes = targetColumn.getMoteViewPage(pageNum: 0);
@@ -101,9 +102,12 @@ Future<List<Mote>> _getSampleGroup() async {
 		targetColumn.sortMethods.clear();
 
 		// Filtering example
+		print("Filtering:");
 		targetColumn.filters.add(Filter.andFilter("title", "Kaufmann"));
 		targetColumn.calculateMoteView();
 		final filteredMotes = Mote.interpretMotesCSV(targetColumn.getMoteViewPage(pageNum: 0));
+		final filteredMoteDescription = targetColumn.getMoteViewPage(unpaginated: true).map((m) => "#${m.id} - ${m.payload['title']}");
+		print("Found ${filteredMoteDescription.length} in filtered motes: ${filteredMoteDescription.join(', ')}");
 		print(filteredMotes.item1);     // Header
 		print(filteredMotes.item2);     // Data
 
