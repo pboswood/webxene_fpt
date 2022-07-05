@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:webxene_core/auth_manager.dart';
+import 'package:webxene_core/instance_manager.dart';
 import 'package:webxene_core/motes/filter.dart';
 import 'package:webxene_core/motes/mote_column.dart';
 import 'package:webxene_fpt/sample/sample_group.dart';
@@ -123,6 +124,16 @@ class HomeWidget extends StatelessWidget {
 			final sampleMotesCSV = Mote.interpretMotesCSV(sampleMotes);
 			timerLoad.stop();
 			ret += "\n\nBenchmark: Fetched+interpreted ${sampleMotesCSV.item2.length} motes in ${timerLoad.elapsedMilliseconds}ms.";
+
+			// Run global search example
+			final searchGlobal = await MoteManager().searchMoteGlobalIndex(
+				groupId: 7,
+				searchTerms: [ "ref", "cust" ],
+				moteTypes: [ InstanceManager().schemaByType("beta_bulkdata"), InstanceManager().schemaByType("beta_customer") ]
+			);
+			ret += "\n\nFound ${searchGlobal.length} motes from global search: ";
+			ret += searchGlobal.map((m) => m.id.toString()).toList().join(', ');
+
 		} catch (ex) {
 			ret += "\n\n" + "*** Encountered exception: $ex ***\n";
 		}

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:webxene_core/auth_manager.dart';
 import 'package:webxene_core/group_manager.dart';
 import 'package:webxene_core/groups/group.dart';
+import 'package:webxene_core/instance_manager.dart';
+import 'package:webxene_core/mote_manager.dart';
 import 'package:webxene_core/motes/filter.dart';
 import 'package:webxene_core/motes/mote.dart';
 import 'package:webxene_core/motes/mote_column.dart';
@@ -128,6 +130,17 @@ Future<List<Mote>> _getSampleGroup() async {
 		for (var note in notesView) {
 			var companyRefs = MoteRelation.asMoteList(note.payload['cf_*ref2'], note.id);
 			print(note.payload['title'] + ": " + companyRefs.map((c) => c.payload['title']).toList().join(", "));
+		}
+
+		// Search mote index example. This will search for any mote with a specific title
+		// (or other indexed content) in a single group, restricted by schema types we are interested in.
+		final searchGlobal = await MoteManager().searchMoteGlobalIndex(
+			groupId: targetGroupId,
+			searchTerms: [ "patrick" ],
+			moteTypes: [ InstanceManager().schemaByType("a1_kontaktedetails") ]
+		);
+		for (var moteMatch in searchGlobal) {
+			print("Found in global search: ${moteMatch.id} ${moteMatch.payload['title']}\n");
 		}
 
 		return motes;
