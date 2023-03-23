@@ -29,7 +29,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
 	TextEditingController loginName = TextEditingController();
 	TextEditingController loginPassword = TextEditingController();
-	bool useProductionServer = false;
+	String serverSelection = "Development";
 
 	late AnimationController _animationController;      // Animations for hero icon
 	final LoginScreenController controller = LoginScreenController();
@@ -45,7 +45,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
 		// TODO: Initialize with testing server HTTP only for now!
 		// InstanceManager().setupInstance("netxene.cirii.org", { 'instance': {'DEBUG_HTTP': true }});
-		useProductionServer = false;
 
 		controller.mirrorState(AuthManager().state);
 		_animationController = AnimationController(
@@ -99,6 +98,29 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 	}
 
 	List<Widget> _buildLogin(BuildContext context) {
+		final selServer = DropdownButtonFormField<String>(
+			value: serverSelection,
+			icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
+			elevation: 16,
+			style: const TextStyle(color: Colors.black),
+			decoration: const InputDecoration(
+				prefixIcon: Icon(Icons.storage, color: Colors.black87),
+				prefixText: "Server: ",
+				prefixStyle: TextStyle(color: Colors.black),
+			),
+			onChanged: (String? newValue) {
+				setState(() {
+					serverSelection = newValue!;
+				});
+			},
+			items: <String>['Development', 'Testing', 'Production'].map<DropdownMenuItem<String>>((String value) {
+				return DropdownMenuItem<String>(
+					value: value,
+					child: Text(value),
+				);
+			}).toList(),
+		);
+
 		final txtLoginName = TextFormField(
 			controller: loginName,
 			decoration: const InputDecoration(
@@ -164,15 +186,23 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 					return;
 				}
 
-				if (useProductionServer) {
-					InstanceManager().setupInstance("crm.sevconcept.ch", {'instance': {'DEBUG_HTTP': false}});
-				} else {
-					InstanceManager().setupInstance("netxene.cirii.org", {'instance': {'DEBUG_HTTP': true}});
+				switch (serverSelection) {
+					case "Development":
+						InstanceManager().setupInstance("netxene.cirii.org", {'instance': {'DEBUG_HTTP': true}});
+						break;
+					case "Testing":
+						InstanceManager().setupInstance("demo.xemino.ch", {'instance': {'DEBUG_HTTP': false}});
+						break;
+					case "Production":
+						InstanceManager().setupInstance("crm.sevconcept.ch", {'instance': {'DEBUG_HTTP': false}});
+						break;
+					default:
+						throw "Invalid server selection in login screen!";
 				}
 
 				AuthManager().runSingleStageLogin(loginName.text, loginPassword.text).then((_) {
 					if (AuthManager().state == AuthState.complete) {
-						Navigator.pushNamed(context, useProductionServer ? '/sample' : '/home');
+						Navigator.pushNamed(context, serverSelection != "Development" ? '/sample' : '/home');
 					}
 				});
 			},
@@ -195,7 +225,27 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 			),
 		);
 
-		final topDebugFill = Container(
+		final topDevFill = Container(
+			decoration: const BoxDecoration(
+					color: Colors.black45,
+					backgroundBlendMode: BlendMode.darken,
+					borderRadius: BorderRadius.all(Radius.circular(7))
+			),
+			height: 40,
+			child: TextButton.icon(
+				icon: const Icon(Icons.login_sharp),
+				label: Container(
+					child: const Text("DEV"),
+				),
+				onPressed: () {
+					serverSelection = "Development";
+					loginName.text = "alice@example.com";
+					loginPassword.text = "alice";
+				},
+			),
+		);
+
+		final topTestFill = Container(
 			decoration: const BoxDecoration(
 				color: Colors.black45,
 				backgroundBlendMode: BlendMode.darken,
@@ -203,14 +253,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 			),
 			height: 40,
 			child: TextButton.icon(
-				icon: const Icon(Icons.badge_sharp),
+				icon: const Icon(Icons.login_sharp),
 				label: Container(
-					child: const Text("Fill Test Login"),
+					child: const Text("TEST"),
 				),
 				onPressed: () {
-					useProductionServer = false;
-					loginName.text = "alice@example.com";
-					loginPassword.text = "alice";
+					serverSelection = "Testing";
+					loginName.text = "demo@xemino.ch";
+					loginPassword.text = "demouser123";
 				},
 			),
 		);
@@ -223,12 +273,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 			),
 			height: 40,
 			child: TextButton.icon(
-				icon: const Icon(Icons.verified_sharp),
+				icon: const Icon(Icons.login_sharp),
 				label: Container(
-					child: const Text("Fill Prod. Login"),
+					child: const Text("PROD"),
 				),
 				onPressed: () {
-					useProductionServer = true;
+					serverSelection = "Production";
 					loginName.text = "demo-user@sevconcept.ch";
 					loginPassword.text = "demouser123";
 				},
@@ -236,13 +286,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 		);
 
 		final topAllFill = Row(
-			children: [topDebugFill, topProdFill],
+			children: [topDevFill, topTestFill, topProdFill],
 			mainAxisAlignment: MainAxisAlignment.spaceEvenly,
 		);
 
 		return [
 			topWarning, topAllFill, const Padding(padding: EdgeInsets.all(10)),
-			txtLoginName, txtLoginPassword, const Padding(padding: EdgeInsets.all(10)),
+			selServer, txtLoginName, txtLoginPassword, const Padding(padding: EdgeInsets.all(10)),
 			btnRunLogin
 		];
 	}

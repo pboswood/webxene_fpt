@@ -1,6 +1,9 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:webxene_core/auth_manager.dart';
 import 'package:webxene_core/instance_manager.dart';
+import 'package:webxene_core/motes/attachment.dart';
 import 'package:webxene_core/motes/filter.dart';
 import 'package:webxene_core/motes/mote_column.dart';
 import 'package:webxene_fpt/sample/sample_group.dart';
@@ -134,6 +137,92 @@ class HomeWidget extends StatelessWidget {
 			ret += "\n\nFound ${searchGlobal.length} motes from global search: ";
 			ret += searchGlobal.map((m) => m.id.toString()).toList().join(', ');
 
+			// Display attachment data from an existing mote (#4964), then fetch it in full (e.g. after clicking).
+			final moteWithAttachment = await MoteManager().fetchMote(4964, 7);
+			ret += "\n\nLoaded mote with ${moteWithAttachment.attachments.length} attachments:";
+			for (var attachment in moteWithAttachment.attachments) {
+				ret += "\n${attachment.filename}: ${attachment.mime}, size ${attachment.filesize}";
+			}
+			if (!moteWithAttachment.attachments.first.isLoaded) {       // If attachment isn't loaded, load it async.
+				await moteWithAttachment.attachments.first.loadAttachment();
+			}
+			ret += "\nDecrypted attachment of ${moteWithAttachment.attachments.first.byteArray?.length ?? 0} bytes successfully!";
+			// You can also manually clear the attachment bytes (in RAM) if you are sure you no longer need it (or just wait for Garbage Collection)
+			// moteWithAttachment.attachments.first.clearAttachment();
+
+			// Create an attachment with an existing piece of data gathered from file input, etc.
+			Uint8List sampleFileBytes = Uint8List.fromList("Example file with data - text/plain".codeUnits);        // Normally loaded from file, etc.
+			Attachment newAttachment = Attachment.newFromByteArray("samplefile.txt", "text/plain", sampleFileBytes);
+			// Attachment must be uploaded first (allocating an ID) before it can be 'attached' to the mote and then saved.
+			await newAttachment.saveAttachmentRemotely();
+			ret += "\nUploaded remote attachment with attach ID #${newAttachment.id} (encrypted size ${newAttachment.encryptedBytes?.length ?? 0} bytes)";
+			moteWithAttachment.attachments.add(newAttachment);
+			// Remove any attachments with the same filename (just to allow this test to run multiple times easily)
+			moteWithAttachment.attachments.removeWhere((attach) => attach.filename == 'samplefile.txt' && attach.id != newAttachment.id);
+			MoteManager().saveMote(moteWithAttachment);
+			ret += "\nSaved mote with new remote attachment successfully (#${moteWithAttachment.id})";
+
+			// Example of updating an existing mote (#4926) by replacing the cf_data_values Text field with the current time.
+			Mote updateMote = await MoteManager().fetchMote(4926, 7);
+			updateMote.payload['cf_data_values'] = "Updated at ${DateTime.now().hour}:${DateTime.now().minute}:${DateTime.now().second}.";
+			updateMote = await MoteManager().saveMote(updateMote);      // saveMote returns latest new copy of Mote from server.
+			// It may help to reload this mote - saving automatically caches the saved mote, so this is network free.
+			updateMote = await MoteManager().fetchMote(updateMote.id, 7);
+			ret += "\n\nUpdated and changed Mote #${updateMote.id} data_values = ${updateMote.payload['cf_data_values']}";
+
+			// Example of creating a new mote (simple, root-level with no references or anything else)
+			final charlieGroup = await GroupManager().fetchGroup(7);
+			final charliePage = charlieGroup.orderedMenu.firstWhere((page) => page.name == "Charlie Testing");
+			Mote newRootMote = Mote.fromBlank(
+				schema: InstanceManager().schemaByType('charlie_customer'),
+				group: charlieGroup,
+				page: charliePage,
+				author: AuthManager().loggedInUser,
+				title: "My New Customer",       // Title can be omitted here and set later via newRootMote.payload['title'], but all motes must have a title before saving.
+			);
+			newRootMote.payload['cf_full_name'] = "Full name of the customer";
+			newRootMote.payload['cf_telephone'] = '+852 91234567';
+			newRootMote = await MoteManager().saveMote(newRootMote);
+			ret += "\n\nSaved new mote (simple): saved as ID #${newRootMote.id} at timestamp ${newRootMote.timestamp}";
+
+			// Example of creating a new mote with references to another mote (Donation that links to customer above)
+			Mote newDonationMote = Mote.fromBlank(
+				schema: InstanceManager().schemaByType('charlie_donation'),
+				group: charlieGroup,
+				page: charliePage,
+				author: AuthManager().loggedInUser,
+				title: "My New Donation",
+			);
+			newDonationMote.payload['cf_donated_at'] = '2023-03-18T14:30';
+			newDonationMote.payload['amount'] = {
+				'amount': 1770,       // At precision 2, this is EUR 17.70. MUST be an integer.
+				'currency': 'EUR',
+				'precision': 2,
+			};
+			newDonationMote = await MoteManager().saveMote(newDonationMote);
+			ret += "\n\n Saved new mote (reference): saved as ID #${newDonationMote.id} at timestamp ${newDonationMote.timestamp}";
+
+			// Example of creating a new mote inside another subview (e.g. Contact inside an existing Customer).
+			// This is functionally the same as creating a mote and adding a reference in it manually (from the parent -> new mote).
+			Mote existingCustomer = await MoteManager().fetchMote(821, 7);
+			final customerViewPage = charlieGroup.orderedMenu.firstWhere((page) => page.name == "Customer View");   // (Any page where you can view 'contacts' can be used here)
+			Mote newChildMote = Mote.fromBlank(
+				schema: InstanceManager().schemaByType('beta_contact'),
+				group: charlieGroup,
+				page: customerViewPage,
+				author: AuthManager().loggedInUser,
+				title: "Subview contact inside a customer",
+				parent: existingCustomer,
+			);
+			newChildMote.payload['cf_email_address'] = 'email@example.com';
+			newChildMote.payload['cf_secret_text'] = 'ABCDE';
+			newChildMote = await MoteManager().saveMote(newChildMote);
+			// WARNING: You must discard references to parent mote and reload it for most current data, as the cache will NOT
+			// have your most recent reference to your newly created mote yet.
+			// Either do: existingCustomer = null, or existingCustomer = await MoteManager().fetchMote(821, 7);
+			ret += "\n\nSaved new mote (subview): saved as ID #${newChildMote.id} at timestamp ${newChildMote.timestamp}";
+
+			return ret;
 		} catch (ex) {
 			ret += "\n\n" + "*** Encountered exception: $ex ***\n";
 		}

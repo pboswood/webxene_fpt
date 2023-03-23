@@ -35,9 +35,9 @@ class SampleGroup extends StatelessWidget {
 							String subtitle = snapshot.data?[index].payload['cf_adresse'] ?? "";
 							subtitle += "\n" + (snapshot.data?[index].payload['cf_telefon'] ?? "");
 							// Get all relations as motes, then convert them into string separated by commas.
-							var categoryRelations = snapshot.data?[index].payload['cf_kategorie'] as List;
+							var categoryRelations = snapshot.data?[index].payload['cf_kategorie'] as List?;
 							var categoryNames = MoteRelation
-								.asMoteList(categoryRelations, snapshot.data?[index].id ?? 0)
+								.asMoteList(categoryRelations ?? [], snapshot.data?[index].id ?? 0)
 								.map((m) => m.payload['title'] ?? '(Unknown)');
 							subtitle += "\n" + categoryNames.join(', ');
 
@@ -72,9 +72,9 @@ Future<List<Mote>> _getSampleGroup() async {
 	int targetPageId = 6;
 	int targetColumnId = 1;
 
-	// This is equivalent to: https://crm.sevconcept.ch/#!/group/1/page/7/view/129
+	// This is equivalent to: https://crm.sevconcept.ch/#!/group/1/page/7/view/48
 	int specialPageId = 7;
-	int specialPageSubmote = 129;
+	int specialPageSubmote = 48;
 
 	try {
 		// Normal example
@@ -95,17 +95,17 @@ Future<List<Mote>> _getSampleGroup() async {
 		final motesData = motesCSV.item2;
 		print(motesData);
 		
-		// Sorting example
+		// Sorting example - sort motes in column by title ascending.
 		print("Sorting:");
 		targetColumn.sortMethods.add(SortMethod.normalSort("title", true));
 		targetColumn.calculateMoteView();
 		final sortedMotes = targetColumn.getMoteViewPage(pageNum: 0);
 		print(sortedMotes.map((m) => m.payload['title']).toList());
-		targetColumn.sortMethods.clear();
+		targetColumn.sortMethods.clear();       // (Clear sort for next example)
 
-		// Filtering example
+		// Filtering example - search for all motes in column with 'Muster' in title.
 		print("Filtering:");
-		targetColumn.filters.add(Filter.andFilter("title", "Kaufmann"));
+		targetColumn.filters.add(Filter.andFilter("title", "Muster"));
 		targetColumn.calculateMoteView();
 		final filteredMotes = Mote.interpretMotesCSV(targetColumn.getMoteViewPage(pageNum: 0));
 		final filteredMoteDescription = targetColumn.getMoteViewPage(unpaginated: true).map((m) => "#${m.id} - ${m.payload['title']}");
@@ -113,8 +113,8 @@ Future<List<Mote>> _getSampleGroup() async {
 		print(filteredMotes.item1);     // Header
 		print(filteredMotes.item2);     // Data
 
-		// Special page example (e.g. fetching all contacts inside company mote #129)
-		// This is equivalent to: https://crm.sevconcept.ch/#!/group/1/page/7/view/129
+		// Special page example (e.g. fetching all contacts inside company mote #48)
+		// This is equivalent to: https://crm.sevconcept.ch/#!/group/1/page/7/view/48
 		final specialPage = await GroupManager().fetchPageAndMotes(specialPageId, forceRefresh: true, subviewMote: specialPageSubmote);
 		final specialColumnContacts = specialPage.columns[1];       // 'Kontakte' column
 		final specialColumnNotes = specialPage.columns[2];          // 'Notizen' column
@@ -136,7 +136,7 @@ Future<List<Mote>> _getSampleGroup() async {
 		// (or other indexed content) in a single group, restricted by schema types we are interested in.
 		final searchGlobal = await MoteManager().searchMoteGlobalIndex(
 			groupId: targetGroupId,
-			searchTerms: [ "patrick" ],
+			searchTerms: [ "felix" ],
 			moteTypes: [ InstanceManager().schemaByType("a1_kontaktedetails") ]
 		);
 		for (var moteMatch in searchGlobal) {
